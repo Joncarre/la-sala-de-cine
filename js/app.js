@@ -1,63 +1,89 @@
-// --- DATOS Y ESTADO ---
-let USERS = JSON.parse(localStorage.getItem('cine_users')) || [];
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-analytics.js";
+import { getFirestore, collection, doc, setDoc, deleteDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-let movies = JSON.parse(localStorage.getItem('cine_movies')) || [];
-let historyLog = JSON.parse(localStorage.getItem('cine_history')) || [];
-let wishlist = JSON.parse(localStorage.getItem('cine_wishlist')) || [];
+// --- FIREBASE CONFIG ---
+const firebaseConfig = {
+  apiKey: "AIzaSyB0DWYOAAx-WFirBNCzIJOqLPqAhJZkm1o",
+  authDomain: "la-sala-cine.firebaseapp.com",
+  projectId: "la-sala-cine",
+  storageBucket: "la-sala-cine.firebasestorage.app",
+  messagingSenderId: "759365773570",
+  appId: "1:759365773570:web:c48b99a048542a7c3dfa1b",
+  measurementId: "G-6ZMJ3HVL04"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const db = getFirestore(app);
+
+// --- DATOS Y ESTADO LOCAL (Sincronizado) ---
+let USERS = [];
+let movies = [];
+let historyLog = [];
+let wishlist = [];
 
 let activeFilters = [];
 
-// --- FUNCIONES PRINCIPALES ---
+// --- LISTENERS EN TIEMPO REAL ---
+// Escuchar cambios en la base de datos y actualizar la web automáticamente
 
-function saveData() {
-    localStorage.setItem('cine_users', JSON.stringify(USERS));
-    localStorage.setItem('cine_movies', JSON.stringify(movies));
-    localStorage.setItem('cine_history', JSON.stringify(historyLog));
-    localStorage.setItem('cine_wishlist', JSON.stringify(wishlist));
+// 1. Usuarios
+onSnapshot(collection(db, "users"), (snapshot) => {
+    USERS = [];
+    snapshot.forEach((doc) => {
+        USERS.push(doc.data());
+    });
+    // Ordenar por nombre si quieres, o dejar como vienen
+    USERS.sort((a,b) => a.name.localeCompare(b.name));
     renderApp();
-}
+});
+
+// 2. Películas
+onSnapshot(collection(db, "movies"), (snapshot) => {
+    movies = [];
+    snapshot.forEach((doc) => {
+        movies.push(doc.data());
+    });
+    // El orden se aplica en renderGrid
+    renderApp();
+});
+
+// 3. Historial
+onSnapshot(collection(db, "history"), (snapshot) => {
+    historyLog = [];
+    snapshot.forEach((doc) => {
+        historyLog.push(doc.data());
+    });
+    // Ordenar por fecha reciente (timestamp desc)
+    historyLog.sort((a,b) => b.timestamp - a.timestamp);
+    renderApp();
+});
+
+// 4. Wishlist
+onSnapshot(collection(db, "wishlist"), (snapshot) => {
+    wishlist = [];
+    snapshot.forEach((doc) => {
+        wishlist.push(doc.data());
+    });
+    renderWishlist();
+});
+
 
 // --- ALGORITMO DE COLOR CORREGIDO ---
 function getColorForScore(score) {
     if (score < 6) {
-        // MENOR QUE 6: SIEMPRE ROJO
-        // Usamos un rojo estándar, legible y claro de alerta.
         return 'hsl(350, 80%, 50%)'; 
     } else {
-        // MAYOR O IGUAL A 6: SIEMPRE VERDE
-        // Gradiente de luminosidad: 
-        // - Nota 6: Verde Claro (Luminosidad ~60%)
-        // - Nota 10: Verde Oscuro (Luminosidad ~20%)
-        
-        // Fórmula: Invertimos el rango. 
-        // Score 6 -> (score-6) = 0 -> queremos L=60
-        // Score 10 -> (score-6) = 4 -> queremos L=20
-        // Cada punto baja la luminosidad 10%.
-        
         const l = 60 - ((score - 6) * 10);
         return `hsl(140, 75%, ${l}%)`;
     }
 }
 
-function saveUser() {
-    const name = document.getElementById('inp-user-name').value.trim();
-    const color = document.getElementById('inp-user-color').value;
-
-    if (name) {
-        USERS.push({
-            id: 'u' + Date.now(),
-            name: name,
-            color: color
-        });
-        saveData();
-        closeModal('modal-user');
-        document.getElementById('inp-user-name').value = '';
-    }
-}
-
 // --- GESTIÓN DE PELÍCULAS ---
 
-function openMovieForm(isEdit = false, movieId = null) {
+window.openMovieForm = function(isEdit = false, movieId = null) {
     const hiddenId = document.getElementById('edit-id');
     const modalTitle = document.getElementById('modal-title');
     const t = document.getElementById('inp-title');
@@ -86,7 +112,7 @@ function openMovieForm(isEdit = false, movieId = null) {
     openModal('modal-movie');
 }
 
-function validateForm() {
+window.validateForm = function() {
     const t = document.getElementById('inp-title').value.trim();
     const y = document.getElementById('inp-year').value.trim();
     const s = document.getElementById('inp-score').value.trim();
@@ -98,67 +124,133 @@ function validateForm() {
     btn.disabled = !isValid;
 }
 
-function saveMovie() {
-    const id = document.getElementById('edit-id').value;
+window.saveMovie = async function() {
+    const idParam = document.getElementById('edit-id').value;
     const title = document.getElementById('inp-title').value.trim();
     const year = parseInt(document.getElementById('inp-year').value);
     const score = parseFloat(document.getElementById('inp-score').value);
     const duration = parseInt(document.getElementById('inp-duration').value);
 
-    if (id) {
-        const m = movies.find(x => x.id == id);
-        if(m) { m.title = title; m.year = year; m.score = score; m.duration = duration; }
-    } else {
-        movies.unshift({
-            id: Date.now(),
-            title, year, score, duration, seenBy: []
-        });
+    // Si hay idParam es edición, si no, es nueva.
+    // Usamos el idParam existente o generamos uno nuevo basado en timestamp
+    const id = idParam ? parseInt(idParam) : Date.now();
+    
+    // Objeto película
+    // NOTA: Si es edición, mantenemos el seenBy original. Si es nuevo, array vacío.
+    let currentSeenBy = [];
+    if (idParam) {
+        const existing = movies.find(x => x.id == id);
+        if(existing) currentSeenBy = existing.seenBy;
     }
-    closeModal('modal-movie');
-    saveData();
+
+    const movieData = {
+        id: id,
+        title, year, score, duration,
+        seenBy: currentSeenBy
+    };
+
+    try {
+        // Guardar en Firestore (colección "movies", documento = id convertido a string)
+        await setDoc(doc(db, "movies", id.toString()), movieData);
+        closeModal('modal-movie');
+    } catch (e) {
+        console.error("Error al guardar película: ", e);
+        alert("Hubo un error al guardar. Revisa la consola.");
+    }
 }
 
-function toggleSeen(movieId, userId) {
+window.toggleSeen = async function(movieId, userId) {
     const m = movies.find(x => x.id === movieId);
     if (!m) return;
 
-    if (m.seenBy.includes(userId)) {
-        m.seenBy = m.seenBy.filter(u => u !== userId);
+    let newSeenBy = [...m.seenBy]; // Copia
+    let added = false;
+
+    if (newSeenBy.includes(userId)) {
+        newSeenBy = newSeenBy.filter(u => u !== userId);
     } else {
-        m.seenBy.push(userId);
-        const now = new Date();
-        historyLog.unshift({
-            movieId: m.id,
-            title: m.title,
-            dateStr: now.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
-            timestamp: now.getTime(),
-            year: now.getFullYear()
-        });
+        newSeenBy.push(userId);
+        added = true;
     }
-    saveData();
+
+    try {
+        // 1. Actualizar película
+        await updateDoc(doc(db, "movies", m.id.toString()), {
+            seenBy: newSeenBy
+        });
+
+        // 2. Si se ha añadido (visto), añadir al historial
+        if (added) {
+            const now = new Date();
+            const historyItem = {
+                movieId: m.id,
+                title: m.title,
+                dateStr: now.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
+                timestamp: now.getTime(),
+                year: now.getFullYear()
+            };
+            // Usamos un ID único para el documento de historial
+            // Podríamos usar timestamp + random para evitar colisiones
+            const histId = Date.now().toString();
+            await setDoc(doc(db, "history", histId), historyItem);
+        }
+
+    } catch (e) {
+        console.error("Error al actualizar visto: ", e);
+    }
 }
 
-function toggleFilter(uid) {
+window.toggleFilter = function(uid) {
     if(activeFilters.includes(uid)) activeFilters = activeFilters.filter(x => x !== uid);
     else activeFilters.push(uid);
     renderApp();
 }
 
-// --- WISHLIST ---
-function addWish() {
-    const val = document.getElementById('inp-wish').value.trim();
-    if(val) {
-        wishlist.push({ id: Date.now(), text: val });
-        document.getElementById('inp-wish').value = '';
-        renderWishlist();
-        saveData(); 
+// --- GESTIÓN DE USUARIOS ---
+
+window.saveUser = async function() {
+    const name = document.getElementById('inp-user-name').value.trim();
+    const color = document.getElementById('inp-user-color').value;
+
+    if (name) {
+        const userId = 'u' + Date.now(); // ID único
+        const userData = { id: userId, name, color };
+
+        try {
+            await setDoc(doc(db, "users", userId), userData);
+            closeModal('modal-user');
+            document.getElementById('inp-user-name').value = '';
+        } catch (e) {
+            console.error("Error al guardar usuario: ", e);
+            alert("Error al guardar usuario");
+        }
     }
 }
-function removeWish(id) {
-    wishlist = wishlist.filter(w => w.id !== id);
-    renderWishlist();
-    saveData();
+
+// --- WISHLIST ---
+window.addWish = async function() {
+    const val = document.getElementById('inp-wish').value.trim();
+    if(val) {
+        const wishId = Date.now();
+        const wishData = { id: wishId, text: val };
+        
+        try {
+            await setDoc(doc(db, "wishlist", wishId.toString()), wishData);
+            document.getElementById('inp-wish').value = '';
+        } catch (e) {
+            console.error("Error wishlist:", e);
+        }
+    }
 }
+
+window.removeWish = async function(id) {
+    try {
+        await deleteDoc(doc(db, "wishlist", id.toString()));
+    } catch (e) {
+        console.error("Error borrar wishlist:", e);
+    }
+}
+
 function renderWishlist() {
     const c = document.getElementById('wishlist-container');
     c.innerHTML = wishlist.length ? '' : '<p style="text-align:center; opacity:0.5; padding:20px;">No hay películas pendientes</p>';
@@ -173,7 +265,7 @@ function renderWishlist() {
 
 // --- RENDER APP ---
 
-function renderApp() {
+window.renderApp = function() {
     renderHeaderStats();
     renderFilters();
     renderGrid();
@@ -266,7 +358,7 @@ function renderGrid() {
 
 // --- ESTADÍSTICAS ---
 
-function openStats() {
+window.openStats = function() {
     const tbody = document.getElementById('tbl-stats-users');
     tbody.innerHTML = '';
     const totalMovies = movies.length;
@@ -330,7 +422,7 @@ function openStats() {
     openModal('modal-stats');
 }
 
-function openHistory() {
+window.openHistory = function() {
     const c = document.getElementById('history-container');
     c.innerHTML = historyLog.length ? '' : '<p style="text-align:center; opacity:0.5; padding:20px;">Aún no hay historial</p>';
     historyLog.forEach(h => {
@@ -343,11 +435,11 @@ function openHistory() {
     openModal('modal-history');
 }
 
-function openModal(id) { 
+window.openModal = function(id) { 
     document.getElementById(id).classList.add('open'); 
     if(id === 'modal-wishlist') renderWishlist();
 }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+window.closeModal = function(id) { document.getElementById(id).classList.remove('open'); }
 
 // Init
 renderApp();
