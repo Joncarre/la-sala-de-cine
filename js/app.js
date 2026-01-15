@@ -1,18 +1,7 @@
 // --- DATOS Y ESTADO ---
-const USERS = [
-    { id: 'u1', name: 'Ana', color: '#ff7675' },
-    { id: 'u2', name: 'Beto', color: '#55efc4' },
-    { id: 'u3', name: 'Carla', color: '#a29bfe' },
-    { id: 'u4', name: 'David', color: '#ffeaa7' },
-    { id: 'u5', name: 'Elena', color: '#74b9ff' }
-];
+let USERS = JSON.parse(localStorage.getItem('cine_users')) || [];
 
-let movies = JSON.parse(localStorage.getItem('cine_movies')) || [
-    { id: 1, title: "El Padrino", year: 1972, score: 9.0, duration: 175, seenBy: ['u1', 'u2', 'u3'] },
-    { id: 2, title: "Sharknado", year: 2013, score: 3.5, duration: 86, seenBy: ['u1'] },
-    { id: 3, title: "El Señor de los Anillos: El Retorno del Rey", year: 2003, score: 9.4, duration: 201, seenBy: [] },
-    { id: 4, title: "Película Regular", year: 2022, score: 6.0, duration: 90, seenBy: [] }
-];
+let movies = JSON.parse(localStorage.getItem('cine_movies')) || [];
 let historyLog = JSON.parse(localStorage.getItem('cine_history')) || [];
 let wishlist = JSON.parse(localStorage.getItem('cine_wishlist')) || [];
 
@@ -21,6 +10,7 @@ let activeFilters = [];
 // --- FUNCIONES PRINCIPALES ---
 
 function saveData() {
+    localStorage.setItem('cine_users', JSON.stringify(USERS));
     localStorage.setItem('cine_movies', JSON.stringify(movies));
     localStorage.setItem('cine_history', JSON.stringify(historyLog));
     localStorage.setItem('cine_wishlist', JSON.stringify(wishlist));
@@ -46,6 +36,22 @@ function getColorForScore(score) {
         
         const l = 60 - ((score - 6) * 10);
         return `hsl(140, 75%, ${l}%)`;
+    }
+}
+
+function saveUser() {
+    const name = document.getElementById('inp-user-name').value.trim();
+    const color = document.getElementById('inp-user-color').value;
+
+    if (name) {
+        USERS.push({
+            id: 'u' + Date.now(),
+            name: name,
+            color: color
+        });
+        saveData();
+        closeModal('modal-user');
+        document.getElementById('inp-user-name').value = '';
     }
 }
 
@@ -187,6 +193,9 @@ function renderFilters() {
         const style = active ? `background-color: ${u.color}; border-color: ${u.color}; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2);` : '';
         container.innerHTML += `<div class="pill ${active?'active':''}" style="${style}" onclick="toggleFilter('${u.id}')">${u.name}</div>`;
     });
+    
+    // Botón añadir usuario
+    container.innerHTML += `<div class="pill" style="font-weight:bold; opacity:0.6; padding: 6px 12px;" onclick="openModal('modal-user')">+</div>`;
 
     const maxDur = document.getElementById('filter-dur').value;
     const minScore = document.getElementById('filter-score').value;

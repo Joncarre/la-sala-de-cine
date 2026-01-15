@@ -115,6 +115,24 @@
     </div>
 </div>
 
+<div id="modal-user" class="modal-overlay">
+    <div class="modal-content">
+        <h2>Nuevo Usuario</h2>
+        <div class="form-group">
+            <label>Nombre</label>
+            <input type="text" id="inp-user-name" placeholder="Nombre">
+        </div>
+        <div class="form-group">
+            <label>Color</label>
+            <input type="color" id="inp-user-color" value="#ff7675" style="width:100%; height:50px; border-radius:12px; cursor:pointer;">
+        </div>
+        <div style="display:flex; gap:15px; margin-top:30px;">
+            <button class="btn btn-primary" style="flex:1;" onclick="saveUser()">Añadir</button>
+            <button class="btn btn-soft" style="flex:1;" onclick="closeModal('modal-user')">Cancelar</button>
+        </div>
+    </div>
+</div>
+
 <div id="modal-stats" class="modal-overlay">
     <div class="modal-content">
         <h2>Estadísticas Detalladas</h2>

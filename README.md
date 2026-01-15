@@ -1,5 +1,7 @@
 # 🍿 La Sala de Cine
 
+![Portada](static/image.png)
+
 Una web sencilla para organizar y gestionar películas entre amigos. Permite llevar un registro de lo que se ha visto, notas, estadísticas y listas de deseos.
 
 **🚧 Estado del proyecto: En desarrollo**
