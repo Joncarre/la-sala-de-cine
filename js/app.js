@@ -1,17 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-analytics.js";
 import { getFirestore, collection, doc, setDoc, deleteDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-
-// --- FIREBASE CONFIG ---
-const firebaseConfig = {
-  apiKey: "AIzaSyB0DWYOAAx-WFirBNCzIJOqLPqAhJZkm1o",
-  authDomain: "la-sala-cine.firebaseapp.com",
-  projectId: "la-sala-cine",
-  storageBucket: "la-sala-cine.firebasestorage.app",
-  messagingSenderId: "759365773570",
-  appId: "1:759365773570:web:c48b99a048542a7c3dfa1b",
-  measurementId: "G-6ZMJ3HVL04"
-};
+import { firebaseConfig } from "./firebase-config.js";
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
