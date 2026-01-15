@@ -289,5 +289,102 @@ td:first-child { text-align: left; font-weight: 500; }
     border-radius: 16px; margin-bottom: 8px; 
     display: flex; justify-content: space-between; font-size: 0.95rem; align-items: center;
 }
-.wishlist-del { color: #ff7675; cursor: pointer; font-weight: bold; padding: 8px; border-radius: 8px; }
 .wishlist-del:hover { background: #fff0f0; }
+
+/* --- RESPONSIVE DESIGN (MOBILE) --- */
+@media (max-width: 768px) {
+    /* Layout Global */
+    body { padding: 10px; }
+    .container { width: 100%; padding: 0 5px; box-sizing: border-box; }
+    
+    /* Header */
+    h1 { font-size: 1.5rem; text-align: center; }
+    header { 
+        padding: 20px; 
+        flex-direction: column; 
+        gap: 20px; 
+        text-align: center;
+    }
+    
+    .global-stats {
+        width: 100%;
+        gap: 10px;
+        justify-content: space-around; /* Distribuir equitativamente */
+    }
+    .gs-item { flex: 1; }
+    .gs-val { font-size: 1.3rem; }
+    .gs-lbl { font-size: 0.6rem; letter-spacing: 1px; }
+
+    /* Controls */
+    .controls { padding: 20px; gap: 15px; }
+    
+    .control-row { 
+        flex-direction: column; 
+        align-items: stretch; /* Ocupar todo el ancho */
+        gap: 15px;
+    }
+
+    .control-row > div:first-child {
+        justify-content: center; /* Centrar botones */
+        display: grid !important; /* Usar grid para botones en móvil */
+        grid-template-columns: 1fr 1fr; /* 2 columnas */
+        gap: 10px !important;
+        width: 100%;
+    }
+    
+    /* Botón "+ Película" destacado (full width si se quiere, o dejar 2 col) 
+       Vamos a dejar todos en grid 2 cols para que queden cuadrados grandes */
+
+    /* Select de ordenación */
+    #sort-select { width: 100%; }
+
+    /* Filtros Avanzados */
+    .advanced-filters {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    /* Grid de Películas */
+    .movies-grid {
+        grid-template-columns: 1fr; /* Una sola columna en móvil */
+        gap: 15px;
+    }
+    
+    .movie-card { padding: 15px; }
+    
+    /* Títulos de películas */
+    .card-title { 
+        max-width: 200px; /* Un poco más de espacio al ser 1 sola columna */ 
+        white-space: normal; /* Permitir saltos de línea en móvil si es necesario */
+        height: auto;
+    }
+
+    /* Modales */
+    .modal-content {
+        width: 90%;
+        padding: 25px;
+        max-height: 85vh;
+    }
+
+    /* Formularios en Modal */
+    .form-grid { grid-template-columns: 1fr; gap: 10px; }
+    
+    /* Tablas en Stats */
+    table, thead, tbody, th, td, tr { display: block; }
+    thead tr { position: absolute; top: -9999px; left: -9999px; }
+    
+    tr { border: 1px solid #eee; margin-bottom: 15px; border-radius: 12px; padding: 10px; }
+    
+    td { 
+        border: none; position: relative; padding-left: 50%; text-align: right; 
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    
+    td::before { 
+        content: attr(data-label); /* Necesitaríamos añadir data-label al html si quisiéramos headers, pero lo haremos simple */
+        position: absolute; left: 10px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; opacity: 0.5;
+    }
+    /* Simplificación para tabla stats: dejarla normal pero con scroll si hace falta, o flex */
+    table { display: table; } /* Revertimos table block porque es pequeña */
+    th, td { font-size: 0.8rem; padding: 8px 4px; }
+}
