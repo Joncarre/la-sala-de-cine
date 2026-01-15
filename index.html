@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Sala de Cine 3.3</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="container">
+    
+    <header class="glass">
+        <div>
+            <h1>🍿 La Sala de Cine</h1>
+            <p style="opacity: 0.5; margin: 0; font-weight: 500;">Expertos en el mundo del cine</p>
+        </div>
+        <div class="global-stats">
+            <div class="gs-item">
+                <span class="gs-val" id="stat-total">0</span>
+                <span class="gs-lbl">Totales</span>
+            </div>
+            <div class="gs-item">
+                <span class="gs-val" id="stat-seen-any">0</span>
+                <span class="gs-lbl">Empezadas</span>
+            </div>
+            <div class="gs-item">
+                <span class="gs-val" id="stat-virgin">0</span>
+                <span class="gs-lbl">Nadie ha visto</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="glass controls">
+        
+        <div class="control-row">
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="openMovieForm()">+ Película</button>
+                <button class="btn" onclick="openModal('modal-wishlist')">✨ Wishlist</button>
+                <button class="btn" onclick="openStats()">📊 Estadísticas</button>
+                <button class="btn" onclick="openHistory()">📅 Historial</button>
+            </div>
+
+            <div>
+                <select id="sort-select" onchange="renderApp()">
+                    <option value="default">Orden: Añadidas recientes</option>
+                    <option value="score">Mejor Nota</option>
+                    <option value="coeff">Más Rentables (Worth it)</option>
+                    <option value="duration">Más Cortas</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="advanced-filters">
+            <div class="filter-group">
+                <div class="filter-label">Pendientes para:</div>
+                <div class="user-pills" id="user-filters"></div>
+            </div>
+            
+            <div class="filter-group" style="flex:1;">
+                <div class="filter-label">
+                    <span>Duración Máxima</span>
+                    <span id="lbl-dur">Todas</span>
+                </div>
+                <input type="range" id="filter-dur" min="30" max="240" step="10" value="240" oninput="renderApp()">
+            </div>
+
+            <div class="filter-group" style="flex:1;">
+                <div class="filter-label">
+                    <span>Nota Mínima</span>
+                    <span id="lbl-score">0</span>
+                </div>
+                <input type="range" id="filter-score" min="0" max="9" step="0.5" value="0" oninput="renderApp()">
+            </div>
+        </div>
+    </div>
+
+    <div id="movies-grid" class="movies-grid"></div>
+
+</div>
+
+<div id="modal-movie" class="modal-overlay">
+    <div class="modal-content">
+        <h2 id="modal-title">Nueva Película</h2>
+        <input type="hidden" id="edit-id"> 
+        
+        <div class="form-group">
+            <label>Título</label>
+            <input type="text" id="inp-title" placeholder="Ej: Cadena Perpetua" oninput="validateForm()">
+        </div>
+        
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Año</label>
+                <input type="text" id="inp-year" placeholder="1994" oninput="validateForm()">
+            </div>
+            <div class="form-group">
+                <label>Nota Filmaffinity (0-10)</label>
+                <input type="text" id="inp-score" placeholder="9.3" oninput="validateForm()">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>Duración (minutos)</label>
+            <input type="text" id="inp-duration" placeholder="142" oninput="validateForm()">
+        </div>
+
+        <div style="display:flex; gap:15px; margin-top:30px;">
+            <button id="btn-save" class="btn btn-primary" style="flex:1;" onclick="saveMovie()" disabled>Guardar</button>
+            <button class="btn btn-soft" style="flex:1;" onclick="closeModal('modal-movie')">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-stats" class="modal-overlay">
+    <div class="modal-content">
+        <h2>Estadísticas Detalladas</h2>
+        
+        <div style="background:#f9f9f9; padding:20px; border-radius:20px; margin-bottom:25px; border:1px solid #eee;">
+            <div style="font-weight:600; margin-bottom:15px; opacity:0.7; text-transform:uppercase; letter-spacing:1px; font-size:0.8rem;">General</div>
+            <div class="list-item">
+                <span>⏳ Tiempo total invertido</span>
+                <span id="st-total-time" style="font-weight:700">-</span>
+            </div>
+            <div class="list-item">
+                <span>🏆 Top 1 (Nota)</span>
+                <span id="st-top1" style="font-weight:700">-</span>
+            </div>
+        </div>
+
+        <h3>Por Persona</h3>
+        <table>
+            <thead>
+                <tr><th>Usuario</th><th>Vistas</th><th>Porcentaje</th><th>Nota Media</th></tr>
+            </thead>
+            <tbody id="tbl-stats-users"></tbody>
+        </table>
+
+        <h3 style="margin-top:30px;">Top 10 Mejores (Vistas)</h3>
+        <div id="list-top10" style="font-size:0.9rem; margin-bottom:25px;"></div>
+
+        <h3>Películas por Año</h3>
+        <div id="list-years" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:25px;"></div>
+
+        <button class="btn btn-soft" style="width:100%;" onclick="closeModal('modal-stats')">Cerrar</button>
+    </div>
+</div>
+
+<div id="modal-history" class="modal-overlay">
+    <div class="modal-content">
+        <h2>Historial de Visionado</h2>
+        <div id="history-container" style="max-height:400px; overflow-y:auto; margin-bottom:25px;"></div>
+        <button class="btn btn-soft" style="width:100%;" onclick="closeModal('modal-history')">Cerrar</button>
+    </div>
+</div>
+
+<div id="modal-wishlist" class="modal-overlay">
+    <div class="modal-content">
+        <h2>✨ Próximamente (Wishlist)</h2>
+        <p style="font-size:0.9rem; opacity:0.6; margin-bottom:20px;">Ideas rápidas para el futuro.</p>
+        
+        <div style="display:flex; gap:10px; margin-bottom:25px;">
+            <input type="text" id="inp-wish" placeholder="Nombre de la peli..." style="margin:0; flex:1; padding:12px;">
+            <button class="btn btn-primary" onclick="addWish()">Añadir</button>
+        </div>
+
+        <div id="wishlist-container"></div>
+        
+        <button class="btn btn-soft" style="width:100%; margin-top:25px;" onclick="closeModal('modal-wishlist')">Cerrar</button>
+    </div>
+</div>
+
+</body>
+<canvas id="particles-canvas"></canvas>
+<script src="js/app.js"></script>
+<script src="js/particles.js"></script>
+</html>

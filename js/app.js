@@ -1,0 +1,344 @@
+// --- DATOS Y ESTADO ---
+const USERS = [
+    { id: 'u1', name: 'Ana', color: '#ff7675' },
+    { id: 'u2', name: 'Beto', color: '#55efc4' },
+    { id: 'u3', name: 'Carla', color: '#a29bfe' },
+    { id: 'u4', name: 'David', color: '#ffeaa7' },
+    { id: 'u5', name: 'Elena', color: '#74b9ff' }
+];
+
+let movies = JSON.parse(localStorage.getItem('cine_movies')) || [
+    { id: 1, title: "El Padrino", year: 1972, score: 9.0, duration: 175, seenBy: ['u1', 'u2', 'u3'] },
+    { id: 2, title: "Sharknado", year: 2013, score: 3.5, duration: 86, seenBy: ['u1'] },
+    { id: 3, title: "El Señor de los Anillos: El Retorno del Rey", year: 2003, score: 9.4, duration: 201, seenBy: [] },
+    { id: 4, title: "Película Regular", year: 2022, score: 6.0, duration: 90, seenBy: [] }
+];
+let historyLog = JSON.parse(localStorage.getItem('cine_history')) || [];
+let wishlist = JSON.parse(localStorage.getItem('cine_wishlist')) || [];
+
+let activeFilters = [];
+
+// --- FUNCIONES PRINCIPALES ---
+
+function saveData() {
+    localStorage.setItem('cine_movies', JSON.stringify(movies));
+    localStorage.setItem('cine_history', JSON.stringify(historyLog));
+    localStorage.setItem('cine_wishlist', JSON.stringify(wishlist));
+    renderApp();
+}
+
+// --- ALGORITMO DE COLOR CORREGIDO ---
+function getColorForScore(score) {
+    if (score < 6) {
+        // MENOR QUE 6: SIEMPRE ROJO
+        // Usamos un rojo estándar, legible y claro de alerta.
+        return 'hsl(350, 80%, 50%)'; 
+    } else {
+        // MAYOR O IGUAL A 6: SIEMPRE VERDE
+        // Gradiente de luminosidad: 
+        // - Nota 6: Verde Claro (Luminosidad ~60%)
+        // - Nota 10: Verde Oscuro (Luminosidad ~20%)
+        
+        // Fórmula: Invertimos el rango. 
+        // Score 6 -> (score-6) = 0 -> queremos L=60
+        // Score 10 -> (score-6) = 4 -> queremos L=20
+        // Cada punto baja la luminosidad 10%.
+        
+        const l = 60 - ((score - 6) * 10);
+        return `hsl(140, 75%, ${l}%)`;
+    }
+}
+
+// --- GESTIÓN DE PELÍCULAS ---
+
+function openMovieForm(isEdit = false, movieId = null) {
+    const hiddenId = document.getElementById('edit-id');
+    const modalTitle = document.getElementById('modal-title');
+    const t = document.getElementById('inp-title');
+    const y = document.getElementById('inp-year');
+    const s = document.getElementById('inp-score');
+    const d = document.getElementById('inp-duration');
+
+    if (isEdit) {
+        const m = movies.find(x => x.id === movieId);
+        modalTitle.innerText = "Editar Película";
+        hiddenId.value = m.id;
+        t.value = m.title;
+        y.value = m.year;
+        s.value = m.score;
+        d.value = m.duration;
+    } else {
+        modalTitle.innerText = "Nueva Película";
+        hiddenId.value = "";
+        t.value = "";
+        y.value = "";
+        s.value = "";
+        d.value = "";
+    }
+    
+    validateForm(); 
+    openModal('modal-movie');
+}
+
+function validateForm() {
+    const t = document.getElementById('inp-title').value.trim();
+    const y = document.getElementById('inp-year').value.trim();
+    const s = document.getElementById('inp-score').value.trim();
+    const d = document.getElementById('inp-duration').value.trim();
+    const btn = document.getElementById('btn-save');
+
+    const isNum = (val) => /^[0-9]+(\.[0-9]+)?$/.test(val);
+    const isValid = t.length > 0 && isNum(y) && isNum(s) && isNum(d);
+    btn.disabled = !isValid;
+}
+
+function saveMovie() {
+    const id = document.getElementById('edit-id').value;
+    const title = document.getElementById('inp-title').value.trim();
+    const year = parseInt(document.getElementById('inp-year').value);
+    const score = parseFloat(document.getElementById('inp-score').value);
+    const duration = parseInt(document.getElementById('inp-duration').value);
+
+    if (id) {
+        const m = movies.find(x => x.id == id);
+        if(m) { m.title = title; m.year = year; m.score = score; m.duration = duration; }
+    } else {
+        movies.unshift({
+            id: Date.now(),
+            title, year, score, duration, seenBy: []
+        });
+    }
+    closeModal('modal-movie');
+    saveData();
+}
+
+function toggleSeen(movieId, userId) {
+    const m = movies.find(x => x.id === movieId);
+    if (!m) return;
+
+    if (m.seenBy.includes(userId)) {
+        m.seenBy = m.seenBy.filter(u => u !== userId);
+    } else {
+        m.seenBy.push(userId);
+        const now = new Date();
+        historyLog.unshift({
+            movieId: m.id,
+            title: m.title,
+            dateStr: now.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
+            timestamp: now.getTime(),
+            year: now.getFullYear()
+        });
+    }
+    saveData();
+}
+
+function toggleFilter(uid) {
+    if(activeFilters.includes(uid)) activeFilters = activeFilters.filter(x => x !== uid);
+    else activeFilters.push(uid);
+    renderApp();
+}
+
+// --- WISHLIST ---
+function addWish() {
+    const val = document.getElementById('inp-wish').value.trim();
+    if(val) {
+        wishlist.push({ id: Date.now(), text: val });
+        document.getElementById('inp-wish').value = '';
+        renderWishlist();
+        saveData(); 
+    }
+}
+function removeWish(id) {
+    wishlist = wishlist.filter(w => w.id !== id);
+    renderWishlist();
+    saveData();
+}
+function renderWishlist() {
+    const c = document.getElementById('wishlist-container');
+    c.innerHTML = wishlist.length ? '' : '<p style="text-align:center; opacity:0.5; padding:20px;">No hay películas pendientes</p>';
+    wishlist.forEach(w => {
+        c.innerHTML += `
+            <div class="list-item wishlist-item">
+                <span>${w.text}</span>
+                <span class="wishlist-del" onclick="removeWish(${w.id})">✕</span>
+            </div>`;
+    });
+}
+
+// --- RENDER APP ---
+
+function renderApp() {
+    renderHeaderStats();
+    renderFilters();
+    renderGrid();
+}
+
+function renderHeaderStats() {
+    document.getElementById('stat-total').innerText = movies.length;
+    document.getElementById('stat-seen-any').innerText = movies.filter(m => m.seenBy.length > 0).length;
+    document.getElementById('stat-virgin').innerText = movies.filter(m => m.seenBy.length === 0).length;
+}
+
+function renderFilters() {
+    const container = document.getElementById('user-filters');
+    container.innerHTML = '';
+    USERS.forEach(u => {
+        const active = activeFilters.includes(u.id);
+        const style = active ? `background-color: ${u.color}; border-color: ${u.color}; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2);` : '';
+        container.innerHTML += `<div class="pill ${active?'active':''}" style="${style}" onclick="toggleFilter('${u.id}')">${u.name}</div>`;
+    });
+
+    const maxDur = document.getElementById('filter-dur').value;
+    const minScore = document.getElementById('filter-score').value;
+    document.getElementById('lbl-dur').innerText = maxDur == 240 ? "Todas" : `< ${maxDur} min`;
+    document.getElementById('lbl-score').innerText = minScore == 0 ? "Todas" : `> ${minScore}`;
+}
+
+function renderGrid() {
+    const grid = document.getElementById('movies-grid');
+    grid.innerHTML = '';
+
+    const maxDur = parseInt(document.getElementById('filter-dur').value);
+    const minScore = parseFloat(document.getElementById('filter-score').value);
+    const sortType = document.getElementById('sort-select').value;
+
+    // FILTRO
+    let display = movies.filter(m => {
+        if (m.duration > maxDur && maxDur < 240) return false;
+        if (m.score < minScore) return false;
+        if (activeFilters.length > 0) {
+            const groupHasSeen = activeFilters.some(uid => m.seenBy.includes(uid));
+            if (groupHasSeen) return false;
+        }
+        return true;
+    });
+
+    // ORDEN
+    display.sort((a,b) => {
+        if(sortType === 'score') return b.score - a.score;
+        if(sortType === 'duration') return a.duration - b.duration;
+        if(sortType === 'coeff') return (b.score/b.duration) - (a.score/a.duration);
+        return b.id - a.id; 
+    });
+
+    // PINTAR
+    display.forEach(m => {
+        const coeff = (m.duration > 0 ? (m.score / m.duration) : 0).toFixed(3);
+        const scoreColor = getColorForScore(m.score);
+        
+        let avatars = '';
+        USERS.forEach(u => {
+            const seen = m.seenBy.includes(u.id);
+            const shortName = u.name.substring(0,2);
+            avatars += `<div class="avatar ${seen?'seen':'not-seen'}" style="${seen?'background:'+u.color:''}" 
+                        onclick="event.stopPropagation(); toggleSeen(${m.id}, '${u.id}')">${shortName}</div>`;
+        });
+
+        const card = document.createElement('div');
+        card.className = 'glass movie-card';
+        card.innerHTML = `
+            <div class="edit-btn" onclick="openMovieForm(true, ${m.id})">✏️</div>
+            <div class="card-header">
+                <div class="card-title" title="${m.title}">${m.title}</div>
+                <div class="score-box" style="background:${scoreColor}">${m.score}</div>
+            </div>
+            <div class="card-meta">${m.year} • ${m.duration} min</div>
+            
+            <div><span class="card-badge">Worth it: ${coeff}</span></div>
+
+            <div class="seen-section">
+                <div style="font-size:0.65rem; opacity:0.6; margin-bottom:8px; font-weight:600; text-transform:uppercase;">Visto por:</div>
+                <div class="avatars">${avatars}</div>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+// --- ESTADÍSTICAS ---
+
+function openStats() {
+    const tbody = document.getElementById('tbl-stats-users');
+    tbody.innerHTML = '';
+    const totalMovies = movies.length;
+    
+    USERS.forEach(u => {
+        const seen = movies.filter(m => m.seenBy.includes(u.id));
+        const count = seen.length;
+        const pct = totalMovies ? Math.round((count/totalMovies)*100) : 0;
+        const avg = count ? (seen.reduce((a,b)=>a+b.score,0)/count).toFixed(2) : '-';
+        
+        tbody.innerHTML += `
+            <tr>
+                <td><span style="color:${u.color}; font-weight:700;">${u.name}</span></td>
+                <td>${count}</td>
+                <td>${pct}%</td>
+                <td>${avg}</td>
+            </tr>
+        `;
+    });
+
+    // Tiempo
+    let totalMinutes = 0;
+    historyLog.forEach(h => {
+        const m = movies.find(x => x.id === h.movieId) || movies.find(x => x.title === h.title);
+        if(m) totalMinutes += m.duration;
+    });
+    const hours = Math.floor(totalMinutes / 60);
+    document.getElementById('st-total-time').innerText = `${hours}h ${totalMinutes % 60}m`;
+
+    // Top 1
+    const seenMovies = movies.filter(m => m.seenBy.length > 0).sort((a,b) => b.score - a.score);
+    if(seenMovies.length > 0) document.getElementById('st-top1').innerText = `${seenMovies[0].title} (${seenMovies[0].score})`;
+    else document.getElementById('st-top1').innerText = "-";
+    
+    // Top 10
+    const top10 = seenMovies.slice(0, 10);
+    document.getElementById('list-top10').innerHTML = top10.map((m, i) => 
+        `<div style="padding:8px 0; border-bottom:1px solid #f0f0f0;">
+            <b>#${i+1}</b> ${m.title} <span style="float:right; opacity:0.6; font-weight:600;">★ ${m.score}</span>
+         </div>`
+    ).join('');
+
+    // Años
+    const yearCounts = {};
+    historyLog.forEach(h => {
+        let y = h.year;
+        if(!y && h.dateStr) { 
+            const parts = h.dateStr.split(' ');
+            y = parts[parts.length-1];
+        }
+        if(!y) y = 'Desc.';
+        yearCounts[y] = (yearCounts[y] || 0) + 1;
+    });
+
+    document.getElementById('list-years').innerHTML = Object.keys(yearCounts).sort().reverse().map(y => 
+        `<div style="background:#fff; padding:6px 12px; border-radius:10px; font-size:0.85rem; border:1px solid #eee; box-shadow:0 2px 5px rgba(0,0,0,0.03);">
+            ${y}: <b>${yearCounts[y]}</b>
+         </div>`
+    ).join('');
+
+    openModal('modal-stats');
+}
+
+function openHistory() {
+    const c = document.getElementById('history-container');
+    c.innerHTML = historyLog.length ? '' : '<p style="text-align:center; opacity:0.5; padding:20px;">Aún no hay historial</p>';
+    historyLog.forEach(h => {
+        c.innerHTML += `
+            <div class="list-item">
+                <span style="font-weight:600">${h.title}</span>
+                <span style="opacity:0.6; font-size:0.85rem;">${h.dateStr}</span>
+            </div>`;
+    });
+    openModal('modal-history');
+}
+
+function openModal(id) { 
+    document.getElementById(id).classList.add('open'); 
+    if(id === 'modal-wishlist') renderWishlist();
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Init
+renderApp();
